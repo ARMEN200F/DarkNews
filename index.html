@@ -3,19 +3,15 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DarkNews</title>
+    <title>DarkNews с Firebase</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #000000;
-            color: #FF0000;
-        }
+        body { font-family: Arial, sans-serif; background-color: #000; color: #FF0000; }
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .content { padding: 20px; background-color: #121212; margin-bottom: 20px; }
         .button-container { text-align: center; margin-top: 20px; }
         .button-container button { padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #FF0000; color: white; border: none; margin: 5px; }
         .article { background-color: #1a1a1a; padding: 10px; margin-bottom: 20px; border-left: 5px solid #FF0000; }
-        .comment { background-color: #333333; padding: 10px; margin-bottom: 10px; }
+        .comment { background-color: #333; padding: 10px; margin-bottom: 10px; }
         textarea, input[type="text"], input[type="password"], input[type="email"] { background-color: #1a1a1a; color: white; border: 1px solid #555; width: 100%; padding: 8px; margin-top: 10px; resize: vertical; }
         img { display: block; margin-top: 10px; max-width: 100%; height: auto; }
     </style>
@@ -26,7 +22,7 @@
     <div class="content" id="loginSection">
         <h1>Добро пожаловать на DarkNews!</h1>
         <div class="button-container">
-            <button onclick="showUserLogin()">Войти как пользователь</button>
+            <button onclick="showUserLogin()">Войти как обычный пользователь</button>
             <button onclick="showAuthorLogin()">Войти как автор</button>
         </div>
     </div>
@@ -58,158 +54,165 @@
     </div>
 </div>
 
+<!-- Firebase SDK -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-// ----------------------- Firebase -----------------------
-const firebaseConfig = {
-  apiKey: "AIzaSyCcg7VJbtbhluJMIfCSzdPZUKoQmYT43ro",
-  authDomain: "darknews-904eb.firebaseapp.com",
-  projectId: "darknews-904eb",
-  storageBucket: "darknews-904eb.firebasestorage.app",
-  messagingSenderId: "699679383044",
-  appId: "1:699679383044:web:9350eef89940dca0771f51",
-  measurementId: "G-LCTR7ZX0K0"
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyCcg7VJbtbhluJMIfCSzdPZUKoQmYT43ro",
+    authDomain: "darknews-904eb.firebaseapp.com",
+    projectId: "darknews-904eb",
+    storageBucket: "darknews-904eb.appspot.com",
+    messagingSenderId: "699679383044",
+    appId: "1:699679383044:web:9350eef89940dca0771f51"
+  };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
-// ----------------------- Авторизация -----------------------
-const validPromoCode = "087212";
-let currentUserEmail = null;
+  // ---------------- Авторизация ----------------
+  const validPromoCode = "087212";
+  let currentUserEmail = "";
 
-function showUserLogin() {
-    document.getElementById("userLogin").style.display = "block";
-    document.getElementById("articles").style.display = "none";
-    document.getElementById("authorLogin").style.display = "none";
-    document.getElementById("authorSection").style.display = "none";
-    document.getElementById("loginSection").style.display = "none";
-}
+  function showUserLogin() {
+      document.getElementById("userLogin").style.display = "block";
+      document.getElementById("articles").style.display = "none";
+      document.getElementById("authorLogin").style.display = "none";
+      document.getElementById("authorSection").style.display = "none";
+      document.getElementById("loginSection").style.display = "none";
+  }
 
-async function verifyUser() {
-    const email = document.getElementById("userEmail").value.trim();
-    const password = document.getElementById("userPassword").value.trim();
-    if (!email || !password) { alert("Введите Gmail и пароль"); return; }
-    currentUserEmail = email;
-    alert("Вход выполнен!");
-    showArticles();
-}
+  function showAuthorLogin() {
+      document.getElementById("authorLogin").style.display = "block";
+      document.getElementById("articles").style.display = "none";
+      document.getElementById("authorSection").style.display = "none";
+      document.getElementById("userLogin").style.display = "none";
+      document.getElementById("loginSection").style.display = "none";
+  }
 
-function showAuthorLogin() {
-    document.getElementById("authorLogin").style.display = "block";
-    document.getElementById("articles").style.display = "none";
-    document.getElementById("authorSection").style.display = "none";
-    document.getElementById("userLogin").style.display = "none";
-    document.getElementById("loginSection").style.display = "none";
-}
+  function verifyUser() {
+      const email = document.getElementById("userEmail").value.trim();
+      const password = document.getElementById("userPassword").value.trim();
+      if (!email || !password) { alert("Введите Gmail и пароль"); return; }
+      currentUserEmail = email;
+      alert("Вы вошли как пользователь!");
+      showArticles();
+      loadArticles();
+  }
 
-function verifyPromoCode() {
-    const promoCode = document.getElementById("promoCode").value.trim();
-    if (promoCode === validPromoCode) {
-        document.getElementById("authorSection").style.display = "block";
-        document.getElementById("authorLogin").style.display = "none";
-    } else { alert("Неправильный промокод"); }
-}
+  function verifyPromoCode() {
+      const promoCode = document.getElementById("promoCode").value.trim();
+      if (promoCode === validPromoCode) {
+          document.getElementById("authorSection").style.display = "block";
+          document.getElementById("authorLogin").style.display = "none";
+      } else { alert("Неправильный промокод"); }
+  }
 
-// ----------------------- Статьи и Firestore -----------------------
-async function submitArticle() {
-    const articleText = document.getElementById("articleInput").value.trim();
-    const imageFile = document.getElementById("imageInput").files[0];
+  // ---------------- Статьи ----------------
+  async function submitArticle() {
+      const text = document.getElementById("articleInput").value.trim();
+      const imageFile = document.getElementById("imageInput").files[0];
+      if (!text && !imageFile) { alert("Добавьте текст или изображение"); return; }
 
-    if (!articleText && !imageFile) { alert("Пожалуйста, добавьте текст или изображение."); return; }
+      let imageData = "";
+      if (imageFile) {
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+              imageData = reader.result;
+              await saveArticleToFirebase(text, imageData);
+          };
+          reader.readAsDataURL(imageFile);
+      } else {
+          await saveArticleToFirebase(text, "");
+      }
+  }
 
-    if (imageFile) {
-        const reader = new FileReader();
-        reader.onloadend = async function () {
-            await saveArticle(articleText, reader.result);
-        };
-        reader.readAsDataURL(imageFile);
-    } else {
-        await saveArticle(articleText, "");
-    }
-}
+  async function saveArticleToFirebase(text, image) {
+      await addDoc(collection(db, "articles"), {
+          text: text,
+          image: image,
+          likes: [],
+          comments: []
+      });
+      document.getElementById("articleInput").value = "";
+      document.getElementById("imageInput").value = "";
+      loadArticles();
+  }
 
-async function saveArticle(text, image) {
-    await addDoc(collection(db, "articles"), {
-        text: text,
-        image: image,
-        likes: 0,
-        comments: [],
-        createdAt: Date.now()
-    });
-    document.getElementById("articleInput").value = "";
-    document.getElementById("imageInput").value = "";
-    displayArticles();
-}
+  async function loadArticles() {
+      const articleList = document.getElementById("articleList");
+      articleList.innerHTML = "";
+      const querySnapshot = await getDocs(collection(db, "articles"));
+      querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const articleDiv = document.createElement("div");
+          articleDiv.classList.add("article");
 
-async function displayArticles() {
-    document.getElementById("articles").style.display = "block";
-    const articleList = document.getElementById("articleList");
-    articleList.innerHTML = "";
+          const textP = document.createElement("p");
+          textP.textContent = data.text;
+          articleDiv.appendChild(textP);
 
-    const querySnapshot = await getDocs(collection(db, "articles"));
-    querySnapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const id = docSnap.id;
+          if (data.image) {
+              const img = document.createElement("img");
+              img.src = data.image;
+              articleDiv.appendChild(img);
+          }
 
-        const articleDiv = document.createElement("div");
-        articleDiv.classList.add("article");
+          // Лайк
+          const likeBtn = document.createElement("button");
+          const liked = data.likes.includes(currentUserEmail);
+          likeBtn.textContent = liked ? `❤️ ${data.likes.length}` : `🤍 ${data.likes.length}`;
+          likeBtn.onclick = async () => {
+              const docRef = doc(db, "articles", docSnap.id);
+              if (liked) {
+                  await updateDoc(docRef, { likes: arrayRemove(currentUserEmail) });
+              } else {
+                  await updateDoc(docRef, { likes: arrayUnion(currentUserEmail) });
+              }
+              loadArticles();
+          };
+          articleDiv.appendChild(likeBtn);
 
-        const articleText = document.createElement("p");
-        articleText.textContent = data.text;
-        articleDiv.appendChild(articleText);
+          // Комментарии
+          if (data.comments) {
+              data.comments.forEach(c => {
+                  const cDiv = document.createElement("div");
+                  cDiv.classList.add("comment");
+                  cDiv.textContent = c;
+                  articleDiv.appendChild(cDiv);
+              });
+          }
 
-        if (data.image) {
-            const articleImage = document.createElement("img");
-            articleImage.src = data.image;
-            articleDiv.appendChild(articleImage);
-        }
+          const commentInput = document.createElement("textarea");
+          commentInput.rows = 2;
+          commentInput.placeholder = "Напишите комментарий...";
+          articleDiv.appendChild(commentInput);
 
-        // Лайки
-        const likeBtn = document.createElement("button");
-        likeBtn.textContent = `❤️ ${data.likes || 0}`;
-        likeBtn.onclick = async () => {
-            await updateDoc(doc(db, "articles", id), { likes: (data.likes || 0) + 1 });
-            displayArticles();
-        };
-        articleDiv.appendChild(likeBtn);
+          const commentBtn = document.createElement("button");
+          commentBtn.textContent = "Добавить комментарий";
+          commentBtn.onclick = async () => {
+              if (!commentInput.value.trim()) return;
+              const docRef = doc(db, "articles", docSnap.id);
+              await updateDoc(docRef, { comments: arrayUnion(commentInput.value.trim()) });
+              commentInput.value = "";
+              loadArticles();
+          };
+          articleDiv.appendChild(commentBtn);
 
-        // Комментарии
-        const commentSection = document.createElement("div");
-        commentSection.classList.add("comment");
-        if (data.comments) {
-            data.comments.forEach(c => {
-                const p = document.createElement("p");
-                p.textContent = c;
-                commentSection.appendChild(p);
-            });
-        }
-        articleDiv.appendChild(commentSection);
+          articleList.appendChild(articleDiv);
+      });
+  }
 
-        // Добавить новый комментарий
-        const newCommentInput = document.createElement("textarea");
-        newCommentInput.rows = 2;
-        newCommentInput.placeholder = "Напишите комментарий...";
-        newCommentInput.style.width = "100%";
-        articleDiv.appendChild(newCommentInput);
+  function showArticles() {
+      document.getElementById("articles").style.display = "block";
+      document.getElementById("authorLogin").style.display = "none";
+      document.getElementById("authorSection").style.display = "none";
+      document.getElementById("userLogin").style.display = "none";
+      document.getElementById("loginSection").style.display = "none";
+  }
 
-        const addCommentBtn = document.createElement("button");
-        addCommentBtn.textContent = "Добавить комментарий";
-        addCommentBtn.onclick = async () => {
-            const comment = newCommentInput.value.trim();
-            if (!comment) { alert("Комментарий пустой"); return; }
-            const newComments = data.comments ? [...data.comments, comment] : [comment];
-            await updateDoc(doc(db, "articles", id), { comments: newComments });
-            displayArticles();
-        };
-        articleDiv.appendChild(addCommentBtn);
-
-        articleList.appendChild(articleDiv);
-    });
-}
-
-// ----------------------- Старт -----------------------
-displayArticles();
 </script>
+
+</body>
+</html>

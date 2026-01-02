@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Мой сайт</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #000000; /* Чёрный фон */
+            color: #FF0000; /* Алый (красный) текст */
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .content {
+            padding: 20px;
+            background-color: #121212; /* Тёмный фон для блоков */
+            margin-bottom: 20px;
+        }
+        .button-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .button-container button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #FF0000; /* Красные кнопки */
+            color: white;
+            border: none;
+            margin: 5px;
+        }
+        .article {
+            background-color: #1a1a1a; /* Ещё более тёмный фон для статей */
+            padding: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid #FF0000; /* Алый бордер для статей */
+        }
+        .comment {
+            background-color: #333333; /* Ещё тёмнее фон для комментариев */
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        textarea, input[type="text"], input[type="password"], input[type="email"] {
+            background-color: #1a1a1a;
+            color: white;
+            border: 1px solid #555;
+            width: 100%;
+            padding: 8px;
+            margin-top: 10px;
+            resize: vertical;
+        }
+        img {
+            display: block;
+            margin-top: 10px;
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="content" id="loginSection">
+        <h1>Добро пожаловать на сайт!</h1>
+        <div class="button-container">
+            <button onclick="showUserLogin()">Войти как обычный пользователь</button>
+            <button onclick="showAuthorLogin()">Войти как автор</button>
+        </div>
+    </div>
+
+    <div id="userLogin" class="content" style="display:none;">
+        <h2>Вход через Gmail</h2>
+        <input type="email" id="userEmail" placeholder="Введите Gmail" autocomplete="off" />
+        <input type="password" id="userPassword" placeholder="Введите пароль" autocomplete="off" />
+        <button onclick="verifyUser()">Войти / Зарегистрироваться</button>
+    </div>
+
+    <div id="articles" class="content" style="display:none;">
+        <h2>Статьи</h2>
+        <div id="articleList"></div>
+    </div>
+
+    <div id="authorLogin" class="content" style="display:none;">
+        <h2>Введите промокод для входа как автор</h2>
+        <input type="text" id="promoCode" placeholder="Промокод" autocomplete="off" />
+        <button onclick="verifyPromoCode()">Войти как автор</button>
+    </div>
+
+    <div id="authorSection" class="content" style="display:none;">
+        <h2>Создайте свою статью</h2>
+        <textarea id="articleInput" placeholder="Напишите вашу статью..." rows="4"></textarea>
+        
+        <h3>Загрузите изображение для вашей статьи</h3>
+        <input type="file" id="imageInput" accept="image/*" />
+
+        <button onclick="submitArticle()">Опубликовать статью</button>
+    </div>
+</div>
+
+<script>
+    // ----------------------- Авторизация -----------------------
+    const validPromoCode = "087212";
+
+    let users = JSON.parse(localStorage.getItem("users")) || []; // массив объектов {email, password}
+
+    function showUserLogin() {
+        document.getElementById("userLogin").style.display = "block";
+        document.getElementById("articles").style.display = "none";
+        document.getElementById("authorLogin").style.display = "none";
+        document.getElementById("authorSection").style.display = "none";
+        document.getElementById("loginSection").style.display = "none";
+    }
+
+    function verifyUser() {
+        const email = document.getElementById("userEmail").value.trim();
+        const password = document.getElementById("userPassword").value.trim();
+
+        if (!email || !password) {
+            alert("Введите Gmail и пароль");
+            return;
+        }
+
+        const existingUser = users.find(u => u.email === email);
+        if (!existingUser) {
+            // Создание нового пользователя
+            users.push({email: email, password: password});
+            localStorage.setItem("users", JSON.stringify(users));
+            alert("Аккаунт создан! Вы вошли.");
+            showArticles();
+        } else {
+            if (existingUser.password === password) {
+                alert("Вход выполнен!");
+                showArticles();
+            } else {
+                alert("Неверный пароль для этого Gmail");
+            }
+        }
+    }
+
+    function showAuthorLogin() {
+        document.getElementById("authorLogin").style.display = "block";
+        document.getElementById("articles").style.display = "none";
+        document.getElementById("authorSection").style.display = "none";
+        document.getElementById("userLogin").style.display = "none";
+        document.getElementById("loginSection").style.display = "none";
+    }
+
+    function verifyPromoCode() {
+        const promoCode = document.getElementById("promoCode").value.trim();
+        if (promoCode === validPromoCode) {
+            document.getElementById("authorSection").style.display = "block";
+            document.getElementById("authorLogin").style.display = "none";
+        } else {
+            alert("Неправильный промокод");
+        }
+    }
+
+    // ----------------------- Статьи -----------------------
+    let articles = JSON.parse(localStorage.getItem("articles")) || [];
+    let comments = JSON.parse(localStorage.getItem("comments")) || [];
+    let likes = JSON.parse(localStorage.getItem("likes")) || [];
+
+    function submitArticle() {
+        const articleText = document.getElementById("articleInput").value.trim();
+        const imageFile = document.getElementById("imageInput").files[0];
+
+        if (!articleText && !imageFile) {
+            alert("Пожалуйста, добавьте текст или изображение.");
+            return;
+        }
+
+        if (imageFile) {
+            const reader = new FileReader();
+            reader.onloadend = function () {
+                saveArticle(articleText, reader.result);
+            };
+            reader.readAsDataURL(imageFile);
+        } else {
+            saveArticle(articleText, "");
+        }
+    }
+
+    function saveArticle(text, image) {
+        const newArticle = { text: text, image: image };
+        articles.push(newArticle);
+        comments.push([]);
+        likes.push(0);
+        saveToStorage();
+        displayArticles();
+
+        document.getElementById("articleInput").value = "";
+        document.getElementById("imageInput").value = "";
+    }
+
+    function saveToStorage() {
+        localStorage.setItem("articles", JSON.stringify(articles));
+        localStorage.setItem("comments", JSON.stringify(comments));
+        localStorage.setItem("likes", JSON.stringify(likes));
+    }
+
+    function showArticles() {
+        document.getElementById("articles").style.display = "block";
+        document.getElementById("authorLogin").style.display = "none";
+        document.getElementById("authorSection").style.display = "none";
+        document.getElementById("userLogin").style.display = "none";
+        document.getElementById("loginSection").style.display = "none";
+        displayArticles();
+    }
+
+    function displayArticles() {
+        const articleList = document.getElementById("articleList");
+        articleList.innerHTML = "";
+
+        articles.forEach((article, index) => {
+            const articleDiv = document.createElement("div");
+            articleDiv.classList.add("article");
+
+            const articleText = document.createElement("p");
+            articleText.textContent = article.text;
+            articleDiv.appendChild(articleText);
+
+            if (article.image) {
+                const articleImage = document.createElement("img");
+                articleImage.src = article.image;
+                articleDiv.appendChild(articleImage);
+            }
+
+            // Лайк
+            const likeBtn = document.createElement("button");
+            const likedKey = `liked_${index}_${localStorage.getItem("userEmail") || "guest"}`;
+            const liked = localStorage.getItem(likedKey) === "true";
+            likeBtn.textContent = `${liked ? "❤️" : "🤍"} ${likes[index]}`;
+            likeBtn.style.marginTop = "5px";
+            likeBtn.onclick = () => {
+                if (liked) {
+                    likes[index]--;
+                    localStorage.setItem(likedKey, "false");
+                } else {
+                    likes[index]++;
+                    localStorage.setItem(likedKey, "true");
+                }
+                saveToStorage();
+                displayArticles();
+            };
+            articleDiv.appendChild(likeBtn);
+
+            // Комментарии
+            const commentSection = document.createElement("div");
+            commentSection.classList.add("comment");
+
+            if (comments[index]) {
+                comments[index].forEach(commentText => {
+                    const commentP = document.createElement("p");
+                    commentP.textContent = commentText;
+                    commentSection.appendChild(commentP);
+                });
+            }
+
+            articleDiv.appendChild(commentSection);
+
+            // Добавить поле для нового комментария
+            const newCommentInput = document.createElement("textarea");
+            newCommentInput.rows = 2;
+            newCommentInput.placeholder = "Напишите комментарий...";
+            newCommentInput.style.width = "100%";
+            articleDiv.appendChild(newCommentInput);
+
+            // Кнопка добавить комментарий
+            const addCommentBtn = document.createElement("button");
+            addCommentBtn.textContent = "Добавить комментарий";
+            addCommentBtn.style.marginTop = "5px";
+            addCommentBtn.onclick = () => {
+                const comment = newCommentInput.value.trim();
+                if (!comment) {
+                    alert("Комментарий не может быть пустым");
+                    return;
+                }
+                comments[index].push(comment);
+                saveToStorage();
+                displayArticles();
+            };
+            articleDiv.appendChild(addCommentBtn);
+
+            // Кнопка изменить или удалить
+            const modifyBtn = document.createElement("button");
+            modifyBtn.textContent = "Если что-то не нравится, могу изменить или удалить";
+            modifyBtn.style.marginTop = "5px";
+            modifyBtn.onclick = () => {
+                const action = prompt("Введите 'удалить' чтобы удалить статью, или напишите новый текст для изменения:");
+                if (!action) return;
+                if (action.toLowerCase() === "удалить") {
+                    articles.splice(index, 1);
+                    comments.splice(index, 1);
+                    likes.splice(index, 1);
+                } else {
+                    articles[index].text = action;
+                }
+                saveToStorage();
+                displayArticles();
+            };
+            articleDiv.appendChild(modifyBtn);
+
+            articleList.appendChild(articleDiv);
+        });
+    }
+
+    // ----------------------- Старт -----------------------
+    displayArticles();
+</script>
+

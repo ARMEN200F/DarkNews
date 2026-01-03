@@ -1,217 +1,119 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DarkNews с Firebase</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #000; color: #FF0000; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .content { padding: 20px; background-color: #121212; margin-bottom: 20px; }
-        .button-container { text-align: center; margin-top: 20px; }
-        .button-container button { padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #FF0000; color: white; border: none; margin: 5px; }
-        .article { background-color: #1a1a1a; padding: 10px; margin-bottom: 20px; border-left: 5px solid #FF0000; }
-        .comment { background-color: #333; padding: 10px; margin-bottom: 10px; }
-        textarea, input[type="text"], input[type="password"], input[type="email"] { background-color: #1a1a1a; color: white; border: 1px solid #555; width: 100%; padding: 8px; margin-top: 10px; resize: vertical; }
-        img { display: block; margin-top: 10px; max-width: 100%; height: auto; }
-    </style>
+  <meta charset="UTF-8">
+  <title>DarkNews</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { background:#000; color:#f00; font-family:Arial }
+    .box { background:#111; padding:15px; margin:15px 0 }
+    button { background:#f00; color:#fff; border:none; padding:8px 12px; cursor:pointer; margin:5px 0 }
+    textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444; padding:8px }
+    .article { border-left:4px solid #f00; padding:10px; margin:15px 0; background:#151515 }
+    .comment { background:#222; padding:6px; margin:4px 0 }
+  </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="content" id="loginSection">
-        <h1>Добро пожаловать на DarkNews!</h1>
-        <div class="button-container">
-            <button onclick="showUserLogin()">Войти как обычный пользователь</button>
-            <button onclick="showAuthorLogin()">Войти как автор</button>
-        </div>
-    </div>
-
-    <div id="userLogin" class="content" style="display:none;">
-        <h2>Вход через Gmail</h2>
-        <input type="email" id="userEmail" placeholder="Введите Gmail" autocomplete="off" />
-        <input type="password" id="userPassword" placeholder="Введите пароль" autocomplete="off" />
-        <button onclick="verifyUser()">Войти / Зарегистрироваться</button>
-    </div>
-
-    <div id="articles" class="content" style="display:none;">
-        <h2>Статьи</h2>
-        <div id="articleList"></div>
-    </div>
-
-    <div id="authorLogin" class="content" style="display:none;">
-        <h2>Введите промокод для входа как автор</h2>
-        <input type="text" id="promoCode" placeholder="Промокод" autocomplete="off" />
-        <button onclick="verifyPromoCode()">Войти как автор</button>
-    </div>
-
-    <div id="authorSection" class="content" style="display:none;">
-        <h2>Создайте свою статью</h2>
-        <textarea id="articleInput" placeholder="Напишите вашу статью..." rows="4"></textarea>
-        <h3>Загрузите изображение для вашей статьи</h3>
-        <input type="file" id="imageInput" accept="image/*" />
-        <button onclick="submitArticle()">Опубликовать статью</button>
-    </div>
+<div id="loginBox" class="box">
+  <h2>DarkNews</h2>
+  <button onclick="openUser()">Войти как пользователь</button>
+  <button onclick="openAuthor()">Войти как автор</button>
 </div>
 
-<!-- Firebase SDK -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+<div id="authorLogin" class="box" style="display:none">
+  <input id="promo" placeholder="Промокод">
+  <button onclick="checkPromo()">Войти</button>
+</div>
 
-  const firebaseConfig = {
+<div id="authorPanel" class="box" style="display:none">
+  <textarea id="articleText" placeholder="Текст статьи"></textarea>
+  <button onclick="addArticle()">Опубликовать</button>
+</div>
+
+<div id="articles" class="box" style="display:none">
+  <h3>Статьи</h3>
+  <div id="list"></div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+  // 🔹 Firebase config
+  firebase.initializeApp({
     apiKey: "AIzaSyCcg7VJbtbhluJMIfCSzdPZUKoQmYT43ro",
     authDomain: "darknews-904eb.firebaseapp.com",
-    projectId: "darknews-904eb",
-    storageBucket: "darknews-904eb.appspot.com",
-    messagingSenderId: "699679383044",
-    appId: "1:699679383044:web:9350eef89940dca0771f51"
-  };
+    projectId: "darknews-904eb"
+  });
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+  const db = firebase.firestore();
+</script>
 
-  // ---------------- Авторизация ----------------
-  const validPromoCode = "087212";
-  let currentUserEmail = "";
+<script>
+  const PROMO = "087212";
 
-  function showUserLogin() {
-      document.getElementById("userLogin").style.display = "block";
-      document.getElementById("articles").style.display = "none";
-      document.getElementById("authorLogin").style.display = "none";
-      document.getElementById("authorSection").style.display = "none";
-      document.getElementById("loginSection").style.display = "none";
+  function openUser(){
+    document.getElementById("loginBox").style.display="none";
+    document.getElementById("articles").style.display="block";
+    loadArticles();
   }
 
-  function showAuthorLogin() {
-      document.getElementById("authorLogin").style.display = "block";
-      document.getElementById("articles").style.display = "none";
-      document.getElementById("authorSection").style.display = "none";
-      document.getElementById("userLogin").style.display = "none";
-      document.getElementById("loginSection").style.display = "none";
+  function openAuthor(){
+    document.getElementById("loginBox").style.display="none";
+    document.getElementById("authorLogin").style.display="block";
   }
 
-  function verifyUser() {
-      const email = document.getElementById("userEmail").value.trim();
-      const password = document.getElementById("userPassword").value.trim();
-      if (!email || !password) { alert("Введите Gmail и пароль"); return; }
-      currentUserEmail = email;
-      alert("Вы вошли как пользователь!");
-      showArticles();
+  function checkPromo(){
+    if(document.getElementById("promo").value === PROMO){
+      document.getElementById("authorLogin").style.display="none";
+      document.getElementById("authorPanel").style.display="block";
+      document.getElementById("articles").style.display="block";
       loadArticles();
+    } else alert("Неверно");
   }
 
-  function verifyPromoCode() {
-      const promoCode = document.getElementById("promoCode").value.trim();
-      if (promoCode === validPromoCode) {
-          document.getElementById("authorSection").style.display = "block";
-          document.getElementById("authorLogin").style.display = "none";
-      } else { alert("Неправильный промокод"); }
+  function addArticle(){
+    const text = articleText.value.trim();
+    if(!text) return;
+    db.collection("articles").add({
+      text, likes:0, comments:[]
+    });
+    articleText.value="";
   }
 
-  // ---------------- Статьи ----------------
-  async function submitArticle() {
-      const text = document.getElementById("articleInput").value.trim();
-      const imageFile = document.getElementById("imageInput").files[0];
-      if (!text && !imageFile) { alert("Добавьте текст или изображение"); return; }
-
-      let imageData = "";
-      if (imageFile) {
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-              imageData = reader.result;
-              await saveArticleToFirebase(text, imageData);
-          };
-          reader.readAsDataURL(imageFile);
-      } else {
-          await saveArticleToFirebase(text, "");
-      }
-  }
-
-  async function saveArticleToFirebase(text, image) {
-      await addDoc(collection(db, "articles"), {
-          text: text,
-          image: image,
-          likes: [],
-          comments: []
+  function loadArticles(){
+    db.collection("articles").onSnapshot(snap=>{
+      list.innerHTML="";
+      snap.forEach(doc=>{
+        const a = doc.data();
+        const div = document.createElement("div");
+        div.className="article";
+        div.innerHTML = `
+          <p>${a.text}</p>
+          <button onclick="like('${doc.id}',${a.likes})">❤️ ${a.likes}</button>
+          <div>
+            ${(a.comments||[]).map(c=>`<div class="comment">${c}</div>`).join("")}
+            <textarea id="c${doc.id}" placeholder="Комментарий"></textarea>
+            <button onclick="comment('${doc.id}')">Отправить</button>
+          </div>
+        `;
+        list.appendChild(div);
       });
-      document.getElementById("articleInput").value = "";
-      document.getElementById("imageInput").value = "";
-      loadArticles();
+    });
   }
 
-  async function loadArticles() {
-      const articleList = document.getElementById("articleList");
-      articleList.innerHTML = "";
-      const querySnapshot = await getDocs(collection(db, "articles"));
-      querySnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          const articleDiv = document.createElement("div");
-          articleDiv.classList.add("article");
-
-          const textP = document.createElement("p");
-          textP.textContent = data.text;
-          articleDiv.appendChild(textP);
-
-          if (data.image) {
-              const img = document.createElement("img");
-              img.src = data.image;
-              articleDiv.appendChild(img);
-          }
-
-          // Лайк
-          const likeBtn = document.createElement("button");
-          const liked = data.likes.includes(currentUserEmail);
-          likeBtn.textContent = liked ? `❤️ ${data.likes.length}` : `🤍 ${data.likes.length}`;
-          likeBtn.onclick = async () => {
-              const docRef = doc(db, "articles", docSnap.id);
-              if (liked) {
-                  await updateDoc(docRef, { likes: arrayRemove(currentUserEmail) });
-              } else {
-                  await updateDoc(docRef, { likes: arrayUnion(currentUserEmail) });
-              }
-              loadArticles();
-          };
-          articleDiv.appendChild(likeBtn);
-
-          // Комментарии
-          if (data.comments) {
-              data.comments.forEach(c => {
-                  const cDiv = document.createElement("div");
-                  cDiv.classList.add("comment");
-                  cDiv.textContent = c;
-                  articleDiv.appendChild(cDiv);
-              });
-          }
-
-          const commentInput = document.createElement("textarea");
-          commentInput.rows = 2;
-          commentInput.placeholder = "Напишите комментарий...";
-          articleDiv.appendChild(commentInput);
-
-          const commentBtn = document.createElement("button");
-          commentBtn.textContent = "Добавить комментарий";
-          commentBtn.onclick = async () => {
-              if (!commentInput.value.trim()) return;
-              const docRef = doc(db, "articles", docSnap.id);
-              await updateDoc(docRef, { comments: arrayUnion(commentInput.value.trim()) });
-              commentInput.value = "";
-              loadArticles();
-          };
-          articleDiv.appendChild(commentBtn);
-
-          articleList.appendChild(articleDiv);
-      });
+  function like(id,l){
+    db.collection("articles").doc(id).update({likes:l+1});
   }
 
-  function showArticles() {
-      document.getElementById("articles").style.display = "block";
-      document.getElementById("authorLogin").style.display = "none";
-      document.getElementById("authorSection").style.display = "none";
-      document.getElementById("userLogin").style.display = "none";
-      document.getElementById("loginSection").style.display = "none";
+  function comment(id){
+    const t = document.getElementById("c"+id).value;
+    if(!t) return;
+    const ref = db.collection("articles").doc(id);
+    ref.update({ comments: firebase.firestore.FieldValue.arrayUnion(t) });
   }
-
 </script>
 
 </body>

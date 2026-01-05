@@ -5,20 +5,22 @@
 <title>DarkNews</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body { background:#000; color:#f00; font-family:Arial; text-align:center }
-.box { background:#111; padding:20px; margin:20px auto; max-width:500px; text-align:left }
-button { background:#f00; color:#fff; border:none; padding:10px 15px; cursor:pointer; margin:8px 0; width:100% }
-textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444; padding:8px }
-.article { border-left:4px solid #f00; padding:10px; margin:15px 0; background:#151515; text-align:left; position:relative }
-.comment { background:#222; padding:6px; margin:6px 0; position:relative }
-.menu { position:absolute; top:4px; right:6px; cursor:pointer; color:red; font-weight:bold }
-.menuBox { display:none; background:#111; border:1px solid #400; padding:5px; margin-top:5px; z-index:100; position:absolute; right:0 }
+body { background:#000; color:#f00; font-family:Arial; text-align:center; }
+.box { background:#111; padding:20px; margin:20px auto; max-width:500px; text-align:left; position:relative; }
+button { background:#f00; color:#fff; border:none; padding:10px 15px; cursor:pointer; margin:8px 0; width:100%; }
+textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444; padding:8px; }
+.article { border-left:4px solid #f00; padding:10px; margin:15px 0; background:#151515; text-align:left; position:relative; }
+.comment { background:#222; padding:6px; margin:6px 0; position:relative; }
+.menu { position:absolute; top:4px; right:6px; cursor:pointer; color:red; font-weight:bold; }
+.menuBox { display:none; background:#111; border:1px solid #400; padding:5px; margin-top:5px; z-index:100; position:absolute; right:0; }
 .menuBox button { width:100%; margin:2px 0; }
+#loginImage { width:100%; max-width:300px; margin:0 auto 20px; display:block; }
 </style>
 </head>
 <body>
 
 <div id="loginBox" class="box">
+<img id="loginImage" src="https://share.google/8oWs8vyrEGOyz7gBu" alt="DarkNews">
 <h2>Добро пожаловать в DarkNews</h2>
 <button onclick="openUser()">Войти как пользователь</button>
 <button onclick="openAuthor()">Войти как автор</button>
@@ -67,7 +69,7 @@ function loadArticles(){
       const div=document.createElement("div");
       div.className="article"; div.id="a"+doc.id;
 
-      // Генерация комментариев
+      // Комментарии
       let commentsHTML=(a.comments||[]).map((c,i)=>`
         <div class="comment" id="cdiv${doc.id}${i}">
           ${IS_AUTHOR?`<span class="menu" onclick="toggleMenu('${doc.id}',${i})">⋮</span>

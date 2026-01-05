@@ -12,6 +12,7 @@ textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444
 .article { border-left:4px solid #f00; padding:10px; margin:15px 0; background:#151515; text-align:left; position:relative; }
 .comment { background:#222; padding:6px; margin:6px 0; position:relative; }
 img.article-img { max-width:100%; margin:10px 0; display:block; }
+#previewContainer img { max-width:100%; border-radius:5px; display:block; margin:5px 0; }
 </style>
 </head>
 <body>
@@ -34,6 +35,12 @@ img.article-img { max-width:100%; margin:10px 0; display:block; }
 <button onclick="chooseFile('bottom')">Добавить фотографию снизу</button>
 <input type="file" id="fileInput" style="display:none" accept="image/*">
 </div>
+
+<!-- Превью выбранного фото -->
+<div id="previewContainer" style="text-align:center; margin:10px 0; display:none;">
+  <img id="previewImg" src="">
+</div>
+
 <button onclick="addArticle()">Опубликовать</button>
 </div>
 
@@ -61,10 +68,25 @@ let IS_AUTHOR = false;
 let selectedFile = null;
 let imgPosition = "top"; // по умолчанию сверху
 
-function openUser(){ IS_AUTHOR=false; loginBox.style.display="none"; articles.style.display="block"; loadArticles(); }
+// Входы
+function openUser(){ 
+  IS_AUTHOR=false; 
+  loginBox.style.display="none"; 
+  articles.style.display="block"; 
+  loadArticles(); 
+}
 function openAuthor(){ loginBox.style.display="none"; authorLogin.style.display="block"; }
-function checkPromo(){ if(promo.value==="087212"){ IS_AUTHOR=true; authorLogin.style.display="none"; authorPanel.style.display="block"; articles.style.display="block"; loadArticles(); } else alert("Неверно"); }
+function checkPromo(){ 
+  if(promo.value==="087212"){ 
+    IS_AUTHOR=true; 
+    authorLogin.style.display="none"; 
+    authorPanel.style.display="block"; 
+    articles.style.display="block"; 
+    loadArticles(); 
+  } else alert("Неверно"); 
+}
 
+// Выбор файла
 function chooseFile(position){
   imgPosition = position;
   document.getElementById('fileInput').click();
@@ -73,9 +95,19 @@ function chooseFile(position){
 document.getElementById('fileInput').addEventListener('change', function(e){
   if(e.target.files[0]){
     selectedFile = e.target.files[0];
+
+    // превью сразу
+    const reader = new FileReader();
+    reader.onload = function(event){
+      const preview = document.getElementById('previewImg');
+      preview.src = event.target.result;
+      document.getElementById('previewContainer').style.display = 'block';
+    }
+    reader.readAsDataURL(selectedFile);
   }
 });
 
+// Добавление статьи
 function addArticle(){
   const text = articleText.value.trim();
   if(!text && !selectedFile) return; // ничего не публикуем, если пусто
@@ -85,11 +117,14 @@ function addArticle(){
     storageRef.put(selectedFile).then(snap=>{
       snap.ref.getDownloadURL().then(url=>{
         saveArticle(text, url);
+        // очищаем превью
+        document.getElementById('previewContainer').style.display='none';
       });
     });
   } else {
     saveArticle(text, null);
   }
+
   articleText.value="";
   selectedFile=null;
 }
@@ -103,6 +138,7 @@ function saveArticle(text, imgUrl){
   db.collection("articles").add(articleData);
 }
 
+// Загрузка статей
 function loadArticles(){
   db.collection("articles").onSnapshot(snap=>{
     list.innerHTML="";
@@ -130,6 +166,7 @@ function loadArticles(){
   });
 }
 
+// Лайки и комментарии
 function like(id,l){ db.collection("articles").doc(id).update({likes:l+1}); }
 function comment(id){ 
   const t = document.getElementById("c"+id).value;

@@ -149,20 +149,19 @@ function loadArticles(){
 
       let contentHTML="";
       if(IS_AUTHOR){
-        // Если автор — показываем кнопку удалить статью
         contentHTML += `<div style="text-align:right;"><button class="delete-btn" onclick="deleteArticle('${doc.id}')">Удалить статью</button></div>`;
       }
       if(a.imgTop) contentHTML += `<img class="article-img" src="${a.imgTop}">`;
       if(a.text) contentHTML += `<p>${a.text}</p>`;
       if(a.imgBottom) contentHTML += `<img class="article-img" src="${a.imgBottom}">`;
 
-      // Комментарии
-      let commentsHTML = (a.comments||[]).map(c=>{
+      // Комментарии с ⋮ и кнопкой «Удалить»
+      let commentsHTML = (a.comments||[]).map((c,index)=>{
         if(IS_AUTHOR){
-          // три точки для автора
-          return `<div class="comment">
+          return `<div class="comment" id="comment-${doc.id}-${index}">
                     ${c} 
-                    <span class="comment-options" onclick="deleteComment('${doc.id}','${c}')">⋮</span>
+                    <span class="comment-options" onclick="toggleDeleteButton('${doc.id}', ${index})">⋮</span>
+                    <button id="delete-btn-${doc.id}-${index}" class="delete-btn" style="display:none;" onclick="deleteComment('${doc.id}','${c}')">Удалить</button>
                   </div>`;
         } else {
           return `<div class="comment">${c}</div>`;
@@ -176,7 +175,6 @@ function loadArticles(){
         <textarea id="c${doc.id}" placeholder="Комментарий"></textarea>
         <button onclick="comment('${doc.id}')">Отправить</button>
       `;
-
       list.appendChild(div);
     });
   });
@@ -193,7 +191,17 @@ function comment(id){
   document.getElementById("c"+id).value="";
 }
 
-// Удаление комментария (только автор)
+// Показать/скрыть кнопку удаления комментария
+function toggleDeleteButton(articleId, index){
+  const btn = document.getElementById(`delete-btn-${articleId}-${index}`);
+  if(btn.style.display === 'none'){
+    btn.style.display = 'inline-block';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+// Удаление комментария
 function deleteComment(articleId, commentText){
   if(!IS_AUTHOR) return;
   const ref = db.collection("articles").doc(articleId);
@@ -202,7 +210,7 @@ function deleteComment(articleId, commentText){
   });
 }
 
-// Удаление статьи (только автор)
+// Удаление статьи
 function deleteArticle(articleId){
   if(!IS_AUTHOR) return;
   if(confirm("Удалить статью?")) {

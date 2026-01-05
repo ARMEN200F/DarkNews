@@ -14,13 +14,11 @@ textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444
 .menu { position:absolute; top:4px; right:6px; cursor:pointer; color:red; font-weight:bold; }
 .menuBox { display:none; background:#111; border:1px solid #400; padding:5px; margin-top:5px; z-index:100; position:absolute; right:0; }
 .menuBox button { width:100%; margin:2px 0; }
-#loginImage { width:100%; max-width:300px; margin:0 auto 20px; display:block; }
 </style>
 </head>
 <body>
 
 <div id="loginBox" class="box">
-<img id="loginImage" src="https://share.google/8oWs8vyrEGOyz7gBu" alt="DarkNews">
 <h2>Добро пожаловать в DarkNews</h2>
 <button onclick="openUser()">Войти как пользователь</button>
 <button onclick="openAuthor()">Войти как автор</button>
@@ -74,7 +72,6 @@ function loadArticles(){
         <div class="comment" id="cdiv${doc.id}${i}">
           ${IS_AUTHOR?`<span class="menu" onclick="toggleMenu('${doc.id}',${i})">⋮</span>
           <div id="m${doc.id}${i}" class="menuBox">
-            <button onclick="editComment('${doc.id}',${i})">Изменить</button>
             <button onclick="deleteComment('${doc.id}',${i})">Удалить</button>
           </div>`:""}
           <div id="t${doc.id}${i}">${c}</div>
@@ -84,7 +81,6 @@ function loadArticles(){
         <p id="p${doc.id}">${a.text}</p>
         ${IS_AUTHOR?`<span class="menu" onclick="toggleArticleMenu('${doc.id}')">⋮</span>
         <div id="am${doc.id}" class="menuBox">
-          <button onclick="editArticle('${doc.id}')">Изменить</button>
           <button onclick="deleteArticle('${doc.id}')">Удалить</button>
         </div>`:""}
         <button onclick="like('${doc.id}',${a.likes})">❤️ ${a.likes}</button>
@@ -100,13 +96,6 @@ function loadArticles(){
 // Articles
 function toggleArticleMenu(id){ const m=document.getElementById("am"+id); m.style.display=(m.style.display==="none"?"block":"none"); }
 function deleteArticle(id){ if(confirm("Удалить эту статью?")) db.collection("articles").doc(id).delete(); }
-function editArticle(id){ 
-  const p=document.getElementById("p"+id); 
-  const old=p.innerText; 
-  p.innerHTML=`<textarea id="art${id}" style="width:100%">${old}</textarea>
-               <button onclick="saveArticle('${id}')">Сохранить</button>`;
-}
-function saveArticle(id){ const newText=document.getElementById("art"+id).value; db.collection("articles").doc(id).update({text:newText}); }
 
 // Comments
 function like(id,l){ db.collection("articles").doc(id).update({likes:l+1}); }
@@ -114,9 +103,6 @@ function comment(id){ const t=document.getElementById("c"+id).value; if(t) db.co
 
 function toggleMenu(id,i){ const m=document.getElementById("m"+id+i); m.style.display=(m.style.display==="none"?"block":"none"); }
 function deleteComment(id,i){ db.collection("articles").doc(id).get().then(d=>{ let a=d.data().comments; a.splice(i,1); db.collection("articles").doc(id).update({comments:a}); }); }
-function editComment(id,i){ const tdiv=document.getElementById("t"+id+i); const old=tdiv.innerText; tdiv.innerHTML=`<textarea id="e${id}${i}" style="width:100%">${old}</textarea>
-<button onclick="saveComment('${id}',${i})">Сохранить</button>`; }
-function saveComment(id,i){ const r=db.collection("articles").doc(id); r.get().then(d=>{ let a=d.data().comments; a[i]=document.getElementById("e"+id+i).value; r.update({comments:a}); }); }
 </script>
 </body>
 </html>

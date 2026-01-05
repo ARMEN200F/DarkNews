@@ -11,9 +11,7 @@ button { background:#f00; color:#fff; border:none; padding:10px 15px; cursor:poi
 textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444; padding:8px; }
 .article { border-left:4px solid #f00; padding:10px; margin:15px 0; background:#151515; text-align:left; position:relative; }
 .comment { background:#222; padding:6px; margin:6px 0; position:relative; }
-.menu { position:absolute; top:4px; right:6px; cursor:pointer; color:red; font-weight:bold; }
-.menuBox { display:none; background:#111; border:1px solid #400; padding:5px; margin-top:5px; z-index:100; position:absolute; right:0; }
-.menuBox button { width:100%; margin:2px 0; }
+img.article-img { max-width:100%; margin:10px 0; display:block; }
 </style>
 </head>
 <body>
@@ -31,6 +29,7 @@ textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444
 
 <div id="authorPanel" class="box" style="display:none">
 <textarea id="articleText" placeholder="Текст статьи"></textarea>
+<input id="articleImage" placeholder="Ссылка на изображение (необязательно)">
 <button onclick="addArticle()">Опубликовать</button>
 </div>
 
@@ -57,32 +56,38 @@ function openUser(){ IS_AUTHOR=false; loginBox.style.display="none"; articles.st
 function openAuthor(){ loginBox.style.display="none"; authorLogin.style.display="block"; }
 function checkPromo(){ if(promo.value===PROMO){ IS_AUTHOR=true; authorLogin.style.display="none"; authorPanel.style.display="block"; articles.style.display="block"; loadArticles(); } else alert("Неверно"); }
 
-function addArticle(){ const t=articleText.value.trim(); if(!t) return; db.collection("articles").add({text:t,likes:0,comments:[]}); articleText.value=""; }
+function addArticle(){
+  const text = articleText.value.trim();
+  const img = articleImage.value.trim();
+  if(!text && !img) return; // ничего не публикуем, если пусто
+  db.collection("articles").add({
+    text: text,
+    img: img,
+    likes:0,
+    comments:[]
+  });
+  articleText.value="";
+  articleImage.value="";
+}
 
 function loadArticles(){
   db.collection("articles").onSnapshot(snap=>{
     list.innerHTML="";
     snap.forEach(doc=>{
-      const a=doc.data();
-      const div=document.createElement("div");
+      const a = doc.data();
+      const div = document.createElement("div");
       div.className="article"; div.id="a"+doc.id;
 
-      // Комментарии
-      let commentsHTML=(a.comments||[]).map((c,i)=>`
-        <div class="comment" id="cdiv${doc.id}${i}">
-          ${IS_AUTHOR?`<span class="menu" onclick="toggleMenu('${doc.id}',${i})">⋮</span>
-          <div id="m${doc.id}${i}" class="menuBox">
-            <button onclick="deleteComment('${doc.id}',${i})">Удалить</button>
-          </div>`:""}
-          <div id="t${doc.id}${i}">${c}</div>
-        </div>`).join("");
+      // Отображение статьи с изображением и текстом
+      let contentHTML = "";
+      if(a.img) contentHTML += `<img class="article-img" src="${a.img}">`;
+      if(a.text) contentHTML += `<p>${a.text}</p>`;
 
-      div.innerHTML=`
-        <p id="p${doc.id}">${a.text}</p>
-        ${IS_AUTHOR?`<span class="menu" onclick="toggleArticleMenu('${doc.id}')">⋮</span>
-        <div id="am${doc.id}" class="menuBox">
-          <button onclick="deleteArticle('${doc.id}')">Удалить</button>
-        </div>`:""}
+      // Комментарии
+      let commentsHTML = (a.comments||[]).map(c=>`<div class="comment">${c}</div>`).join("");
+
+      div.innerHTML = `
+        ${contentHTML}
         <button onclick="like('${doc.id}',${a.likes})">❤️ ${a.likes}</button>
         ${commentsHTML}
         <textarea id="c${doc.id}" placeholder="Комментарий"></textarea>
@@ -93,16 +98,15 @@ function loadArticles(){
   });
 }
 
-// Articles
-function toggleArticleMenu(id){ const m=document.getElementById("am"+id); m.style.display=(m.style.display==="none"?"block":"none"); }
-function deleteArticle(id){ if(confirm("Удалить эту статью?")) db.collection("articles").doc(id).delete(); }
-
-// Comments
+// Лайки и комментарии
 function like(id,l){ db.collection("articles").doc(id).update({likes:l+1}); }
-function comment(id){ const t=document.getElementById("c"+id).value; if(t) db.collection("articles").doc(id).update({comments:firebase.firestore.FieldValue.arrayUnion(t)}); }
-
-function toggleMenu(id,i){ const m=document.getElementById("m"+id+i); m.style.display=(m.style.display==="none"?"block":"none"); }
-function deleteComment(id,i){ db.collection("articles").doc(id).get().then(d=>{ let a=d.data().comments; a.splice(i,1); db.collection("articles").doc(id).update({comments:a}); }); }
+function comment(id){ 
+  const t = document.getElementById("c"+id).value;
+  if(!t) return;
+  const ref = db.collection("articles").doc(id);
+  ref.update({comments: firebase.firestore.FieldValue.arrayUnion(t)});
+  document.getElementById("c"+id).value="";
+}
 </script>
 </body>
 </html>

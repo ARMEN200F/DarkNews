@@ -13,6 +13,8 @@ textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444
 .comment { background:#222; padding:6px; margin:6px 0; position:relative; }
 img.article-img { max-width:100%; margin:10px 0; display:block; }
 #previewContainer img { max-width:100%; border-radius:5px; display:block; margin:5px 0; }
+.comment-options { float:right; cursor:pointer; margin-left:10px; color:#fff; }
+.delete-btn { background:#f00; color:#fff; border:none; padding:3px 5px; cursor:pointer; margin-left:5px; }
 </style>
 </head>
 <body>
@@ -36,7 +38,6 @@ img.article-img { max-width:100%; margin:10px 0; display:block; }
 <input type="file" id="fileInput" style="display:none" accept="image/*">
 </div>
 
-<!-- Превью выбранного фото -->
 <div id="previewContainer" style="text-align:center; margin:10px 0; display:none;">
   <img id="previewImg" src="">
 </div>
@@ -66,7 +67,7 @@ const storage = firebase.storage();
 
 let IS_AUTHOR = false;
 let selectedFile = null;
-let imgPosition = "top"; // по умолчанию сверху
+let imgPosition = "top";
 
 // Входы
 function openUser(){ 
@@ -96,7 +97,6 @@ document.getElementById('fileInput').addEventListener('change', function(e){
   if(e.target.files[0]){
     selectedFile = e.target.files[0];
 
-    // превью сразу
     const reader = new FileReader();
     reader.onload = function(event){
       const preview = document.getElementById('previewImg');
@@ -110,14 +110,13 @@ document.getElementById('fileInput').addEventListener('change', function(e){
 // Добавление статьи
 function addArticle(){
   const text = articleText.value.trim();
-  if(!text && !selectedFile) return; // ничего не публикуем, если пусто
+  if(!text && !selectedFile) return;
 
   if(selectedFile){
     const storageRef = storage.ref('articles/'+Date.now()+'_'+selectedFile.name);
     storageRef.put(selectedFile).then(snap=>{
       snap.ref.getDownloadURL().then(url=>{
         saveArticle(text, url);
-        // очищаем превью
         document.getElementById('previewContainer').style.display='none';
       });
     });
@@ -129,6 +128,7 @@ function addArticle(){
   selectedFile=null;
 }
 
+// Сохранение статьи
 function saveArticle(text, imgUrl){
   let articleData = {text:text, likes:0, comments:[]};
   if(imgUrl){
@@ -148,11 +148,26 @@ function loadArticles(){
       div.className="article";
 
       let contentHTML="";
+      if(IS_AUTHOR){
+        // Если автор — показываем кнопку удалить статью
+        contentHTML += `<div style="text-align:right;"><button class="delete-btn" onclick="deleteArticle('${doc.id}')">Удалить статью</button></div>`;
+      }
       if(a.imgTop) contentHTML += `<img class="article-img" src="${a.imgTop}">`;
       if(a.text) contentHTML += `<p>${a.text}</p>`;
       if(a.imgBottom) contentHTML += `<img class="article-img" src="${a.imgBottom}">`;
 
-      let commentsHTML = (a.comments||[]).map(c=>`<div class="comment">${c}</div>`).join("");
+      // Комментарии
+      let commentsHTML = (a.comments||[]).map(c=>{
+        if(IS_AUTHOR){
+          // три точки для автора
+          return `<div class="comment">
+                    ${c} 
+                    <span class="comment-options" onclick="deleteComment('${doc.id}','${c}')">⋮</span>
+                  </div>`;
+        } else {
+          return `<div class="comment">${c}</div>`;
+        }
+      }).join("");
 
       div.innerHTML = `
         ${contentHTML}
@@ -161,6 +176,7 @@ function loadArticles(){
         <textarea id="c${doc.id}" placeholder="Комментарий"></textarea>
         <button onclick="comment('${doc.id}')">Отправить</button>
       `;
+
       list.appendChild(div);
     });
   });
@@ -168,12 +184,30 @@ function loadArticles(){
 
 // Лайки и комментарии
 function like(id,l){ db.collection("articles").doc(id).update({likes:l+1}); }
+
 function comment(id){ 
   const t = document.getElementById("c"+id).value;
   if(!t) return;
   const ref = db.collection("articles").doc(id);
   ref.update({comments: firebase.firestore.FieldValue.arrayUnion(t)});
   document.getElementById("c"+id).value="";
+}
+
+// Удаление комментария (только автор)
+function deleteComment(articleId, commentText){
+  if(!IS_AUTHOR) return;
+  const ref = db.collection("articles").doc(articleId);
+  ref.update({
+    comments: firebase.firestore.FieldValue.arrayRemove(commentText)
+  });
+}
+
+// Удаление статьи (только автор)
+function deleteArticle(articleId){
+  if(!IS_AUTHOR) return;
+  if(confirm("Удалить статью?")) {
+    db.collection("articles").doc(articleId).delete();
+  }
 }
 </script>
 </body>

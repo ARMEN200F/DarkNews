@@ -10,7 +10,21 @@
     button { background:#f00; color:#fff; border:none; padding:8px 12px; cursor:pointer; margin:5px 0 }
     textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444; padding:8px }
     .article { border-left:4px solid #f00; padding:10px; margin:15px 0; background:#151515 }
-    .comment { background:#222; padding:6px; margin:4px 0 }
+    .comment { background:#222; padding:6px; margin:6px 0; position:relative }
+    .menu {
+      position:absolute;
+      top:4px;
+      right:6px;
+      cursor:pointer;
+      color:red;
+      font-weight:bold;
+    }
+    .menuBox {
+      background:#111;
+      border:1px solid #400;
+      padding:5px;
+      margin-top:5px;
+    }
   </style>
 </head>
 <body>
@@ -41,7 +55,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-  // 🔹 Firebase config
   firebase.initializeApp({
     apiKey: "AIzaSyCcg7VJbtbhluJMIfCSzdPZUKoQmYT43ro",
     authDomain: "darknews-904eb.firebaseapp.com",
@@ -53,23 +66,26 @@
 
 <script>
   const PROMO = "087212";
+  let IS_AUTHOR = false;
 
   function openUser(){
-    document.getElementById("loginBox").style.display="none";
-    document.getElementById("articles").style.display="block";
+    IS_AUTHOR = false;
+    loginBox.style.display="none";
+    articles.style.display="block";
     loadArticles();
   }
 
   function openAuthor(){
-    document.getElementById("loginBox").style.display="none";
-    document.getElementById("authorLogin").style.display="block";
+    loginBox.style.display="none";
+    authorLogin.style.display="block";
   }
 
   function checkPromo(){
-    if(document.getElementById("promo").value === PROMO){
-      document.getElementById("authorLogin").style.display="none";
-      document.getElementById("authorPanel").style.display="block";
-      document.getElementById("articles").style.display="block";
+    if(promo.value === PROMO){
+      IS_AUTHOR = true;
+      authorLogin.style.display="none";
+      authorPanel.style.display="block";
+      articles.style.display="block";
       loadArticles();
     } else alert("Неверно");
   }
@@ -77,9 +93,7 @@
   function addArticle(){
     const text = articleText.value.trim();
     if(!text) return;
-    db.collection("articles").add({
-      text, likes:0, comments:[]
-    });
+    db.collection("articles").add({ text, likes:0, comments:[] });
     articleText.value="";
   }
 
@@ -90,11 +104,24 @@
         const a = doc.data();
         const div = document.createElement("div");
         div.className="article";
+
         div.innerHTML = `
           <p>${a.text}</p>
           <button onclick="like('${doc.id}',${a.likes})">❤️ ${a.likes}</button>
+
           <div>
-            ${(a.comments||[]).map(c=>`<div class="comment">${c}</div>`).join("")}
+            ${(a.comments||[]).map((c,i)=>`
+              <div class="comment">
+                ${IS_AUTHOR ? `
+                  <span class="menu" onclick="toggleMenu('${doc.id}',${i})">⋮</span>
+                  <div id="m${doc.id}${i}" class="menuBox" style="display:none">
+                    <button onclick="deleteComment('${doc.id}',${i})">Удалить</button>
+                  </div>
+                ` : ""}
+                ${c}
+              </div>
+            `).join("")}
+
             <textarea id="c${doc.id}" placeholder="Комментарий"></textarea>
             <button onclick="comment('${doc.id}')">Отправить</button>
           </div>
@@ -111,8 +138,22 @@
   function comment(id){
     const t = document.getElementById("c"+id).value;
     if(!t) return;
+    db.collection("articles").doc(id)
+      .update({ comments: firebase.firestore.FieldValue.arrayUnion(t) });
+  }
+
+  function toggleMenu(id,i){
+    const m = document.getElementById("m"+id+i);
+    m.style.display = m.style.display==="none" ? "block" : "none";
+  }
+
+  function deleteComment(id,i){
     const ref = db.collection("articles").doc(id);
-    ref.update({ comments: firebase.firestore.FieldValue.arrayUnion(t) });
+    ref.get().then(d=>{
+      const arr = d.data().comments || [];
+      arr.splice(i,1);
+      ref.update({comments:arr});
+    });
   }
 </script>
 

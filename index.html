@@ -8,7 +8,7 @@
 body { background:#000; color:#f00; font-family:Arial; text-align:center; }
 .box { background:#111; padding:20px; margin:20px auto; max-width:500px; text-align:left; position:relative; }
 button { background:#f00; color:#fff; border:none; padding:10px 15px; cursor:pointer; margin:8px 0; width:100%; }
-textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444; padding:8px; }
+textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444; padding:8px; margin:5px 0; }
 .article { border-left:4px solid #f00; padding:10px; margin:15px 0; background:#151515; text-align:left; position:relative; }
 .comment { background:#222; padding:6px; margin:6px 0; position:relative; }
 img.article-img { max-width:100%; margin:10px 0; display:block; }
@@ -29,7 +29,11 @@ img.article-img { max-width:100%; margin:10px 0; display:block; }
 
 <div id="authorPanel" class="box" style="display:none">
 <textarea id="articleText" placeholder="Текст статьи"></textarea>
-<input id="articleImage" placeholder="Ссылка на изображение (необязательно)">
+<div>
+<button onclick="chooseFile('top')">Добавить фотографию сверху</button>
+<button onclick="chooseFile('bottom')">Добавить фотографию снизу</button>
+<input type="file" id="fileInput" style="display:none" accept="image/*">
+</div>
 <button onclick="addArticle()">Опубликовать</button>
 </div>
 
@@ -40,34 +44,63 @@ img.article-img { max-width:100%; margin:10px 0; display:block; }
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
 <script>
 firebase.initializeApp({
   apiKey: "AIzaSyCcg7VJbtbhluJMIfCSzdPZUKoQmYT43ro",
   authDomain: "darknews-904eb.firebaseapp.com",
-  projectId: "darknews-904eb"
+  projectId: "darknews-904eb",
+  storageBucket: "darknews-904eb.appspot.com"
 });
-const db = firebase.firestore();
 
-const PROMO = "087212";
+const db = firebase.firestore();
+const storage = firebase.storage();
+
 let IS_AUTHOR = false;
+let selectedFile = null;
+let imgPosition = "top"; // по умолчанию сверху
 
 function openUser(){ IS_AUTHOR=false; loginBox.style.display="none"; articles.style.display="block"; loadArticles(); }
 function openAuthor(){ loginBox.style.display="none"; authorLogin.style.display="block"; }
-function checkPromo(){ if(promo.value===PROMO){ IS_AUTHOR=true; authorLogin.style.display="none"; authorPanel.style.display="block"; articles.style.display="block"; loadArticles(); } else alert("Неверно"); }
+function checkPromo(){ if(promo.value==="087212"){ IS_AUTHOR=true; authorLogin.style.display="none"; authorPanel.style.display="block"; articles.style.display="block"; loadArticles(); } else alert("Неверно"); }
+
+function chooseFile(position){
+  imgPosition = position;
+  document.getElementById('fileInput').click();
+}
+
+document.getElementById('fileInput').addEventListener('change', function(e){
+  if(e.target.files[0]){
+    selectedFile = e.target.files[0];
+  }
+});
 
 function addArticle(){
   const text = articleText.value.trim();
-  const img = articleImage.value.trim();
-  if(!text && !img) return; // ничего не публикуем, если пусто
-  db.collection("articles").add({
-    text: text,
-    img: img,
-    likes:0,
-    comments:[]
-  });
+  if(!text && !selectedFile) return; // ничего не публикуем, если пусто
+
+  if(selectedFile){
+    const storageRef = storage.ref('articles/'+Date.now()+'_'+selectedFile.name);
+    storageRef.put(selectedFile).then(snap=>{
+      snap.ref.getDownloadURL().then(url=>{
+        saveArticle(text, url);
+      });
+    });
+  } else {
+    saveArticle(text, null);
+  }
   articleText.value="";
-  articleImage.value="";
+  selectedFile=null;
+}
+
+function saveArticle(text, imgUrl){
+  let articleData = {text:text, likes:0, comments:[]};
+  if(imgUrl){
+    if(imgPosition==="top") articleData.imgTop = imgUrl;
+    else articleData.imgBottom = imgUrl;
+  }
+  db.collection("articles").add(articleData);
 }
 
 function loadArticles(){
@@ -76,14 +109,13 @@ function loadArticles(){
     snap.forEach(doc=>{
       const a = doc.data();
       const div = document.createElement("div");
-      div.className="article"; div.id="a"+doc.id;
+      div.className="article";
 
-      // Отображение статьи с изображением и текстом
-      let contentHTML = "";
-      if(a.img) contentHTML += `<img class="article-img" src="${a.img}">`;
+      let contentHTML="";
+      if(a.imgTop) contentHTML += `<img class="article-img" src="${a.imgTop}">`;
       if(a.text) contentHTML += `<p>${a.text}</p>`;
+      if(a.imgBottom) contentHTML += `<img class="article-img" src="${a.imgBottom}">`;
 
-      // Комментарии
       let commentsHTML = (a.comments||[]).map(c=>`<div class="comment">${c}</div>`).join("");
 
       div.innerHTML = `
@@ -98,7 +130,6 @@ function loadArticles(){
   });
 }
 
-// Лайки и комментарии
 function like(id,l){ db.collection("articles").doc(id).update({likes:l+1}); }
 function comment(id){ 
   const t = document.getElementById("c"+id).value;

@@ -6,21 +6,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { background:#000; color:#f00; font-family:Arial; text-align:center }
-    .box { background:#111; padding:20px; margin:20px auto; max-width:500px }
+    .box { background:#111; padding:20px; margin:20px auto; max-width:500px; text-align:left }
     button { background:#f00; color:#fff; border:none; padding:10px 15px; cursor:pointer; margin:8px 0; width:100% }
     textarea, input { width:100%; background:#222; color:#fff; border:1px solid #444; padding:8px }
     .article { border-left:4px solid #f00; padding:10px; margin:15px 0; background:#151515; text-align:left }
     .comment { background:#222; padding:6px; margin:6px 0; position:relative }
     .menu { position:absolute; top:4px; right:6px; cursor:pointer; color:red; font-weight:bold }
     .menuBox { background:#111; border:1px solid #400; padding:5px; margin-top:5px }
-    img.logo { max-width:90%; margin-bottom:15px }
   </style>
 </head>
 <body>
 
 <!-- 🔴 LOGIN SCREEN -->
 <div id="loginBox" class="box">
-  <img src="logo.png" class="logo">
   <h2>Добро пожаловать в DarkNews</h2>
   <button onclick="openUser()">Войти как пользователь</button>
   <button onclick="openAuthor()">Войти как автор</button>
@@ -45,96 +43,111 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-firebase.initializeApp({
-  apiKey: "AIzaSyCcg7VJbtbhluJMIfCSzdPZUKoQmYT43ro",
-  authDomain: "darknews-904eb.firebaseapp.com",
-  projectId: "darknews-904eb"
-});
-const db = firebase.firestore();
+  firebase.initializeApp({
+    apiKey: "AIzaSyCcg7VJbtbhluJMIfCSzdPZUKoQmYT43ro",
+    authDomain: "darknews-904eb.firebaseapp.com",
+    projectId: "darknews-904eb"
+  });
+  const db = firebase.firestore();
 
-const PROMO = "087212";
-let IS_AUTHOR = false;
+  const PROMO = "087212";
+  let IS_AUTHOR = false;
 
-function openUser(){
-  IS_AUTHOR = false;
-  loginBox.style.display="none";
-  articles.style.display="block";
-  loadArticles();
-}
-
-function openAuthor(){
-  loginBox.style.display="none";
-  authorLogin.style.display="block";
-}
-
-function checkPromo(){
-  if(promo.value === PROMO){
-    IS_AUTHOR = true;
-    authorLogin.style.display="none";
-    authorPanel.style.display="block";
+  function openUser(){
+    IS_AUTHOR = false;
+    loginBox.style.display="none";
     articles.style.display="block";
     loadArticles();
-  } else alert("Неверно");
-}
+  }
 
-function addArticle(){
-  const text = articleText.value.trim();
-  if(!text) return;
-  db.collection("articles").add({ text, likes:0, comments:[] });
-  articleText.value="";
-}
+  function openAuthor(){
+    loginBox.style.display="none";
+    authorLogin.style.display="block";
+  }
 
-function loadArticles(){
-  db.collection("articles").onSnapshot(snap=>{
-    list.innerHTML="";
-    snap.forEach(doc=>{
-      const a = doc.data();
-      const div = document.createElement("div");
-      div.className="article";
-      div.innerHTML = `
-        <p>${a.text}</p>
-        <button onclick="like('${doc.id}',${a.likes})">❤️ ${a.likes}</button>
-        ${(a.comments||[]).map((c,i)=>`
-          <div class="comment">
-            ${IS_AUTHOR ? `
-              <span class="menu" onclick="toggleMenu('${doc.id}',${i})">⋮</span>
-              <div id="m${doc.id}${i}" class="menuBox" style="display:none">
-                <button onclick="editComment('${doc.id}',${i})">Изменить</button>
-                <button onclick="deleteComment('${doc.id}',${i})">Удалить</button>
-              </div>` : ""}
-            <div id="t${doc.id}${i}">${c}</div>
-          </div>`).join("")}
-        <textarea id="c${doc.id}" placeholder="Комментарий"></textarea>
-        <button onclick="comment('${doc.id}')">Отправить</button>
-      `;
-      list.appendChild(div);
+  function checkPromo(){
+    if(promo.value === PROMO){
+      IS_AUTHOR = true;
+      authorLogin.style.display="none";
+      authorPanel.style.display="block";
+      articles.style.display="block";
+      loadArticles();
+    } else alert("Неверно");
+  }
+
+  function addArticle(){
+    const text = articleText.value.trim();
+    if(!text) return;
+    db.collection("articles").add({ text, likes:0, comments:[] });
+    articleText.value="";
+  }
+
+  function loadArticles(){
+    db.collection("articles").onSnapshot(snap=>{
+      list.innerHTML="";
+      snap.forEach(doc=>{
+        const a = doc.data();
+        const div = document.createElement("div");
+        div.className="article";
+        div.innerHTML = `
+          <p>${a.text}</p>
+          <button onclick="like('${doc.id}',${a.likes})">❤️ ${a.likes}</button>
+          ${(a.comments||[]).map((c,i)=>`
+            <div class="comment">
+              ${IS_AUTHOR ? `
+                <span class="menu" onclick="toggleMenu('${doc.id}',${i})">⋮</span>
+                <div id="m${doc.id}${i}" class="menuBox" style="display:none">
+                  <button onclick="editComment('${doc.id}',${i})">Изменить</button>
+                  <button onclick="deleteComment('${doc.id}',${i})">Удалить</button>
+                </div>` : ""}
+              <div id="t${doc.id}${i}">${c}</div>
+            </div>`).join("")}
+          <textarea id="c${doc.id}" placeholder="Комментарий"></textarea>
+          <button onclick="comment('${doc.id}')">Отправить</button>
+        `;
+        list.appendChild(div);
+      });
     });
-  });
-}
+  }
 
-function like(id,l){ db.collection("articles").doc(id).update({likes:l+1}); }
-function comment(id){
-  const t=document.getElementById("c"+id).value;
-  if(t) db.collection("articles").doc(id)
-    .update({comments:firebase.firestore.FieldValue.arrayUnion(t)});
-}
-function toggleMenu(id,i){
-  const m=document.getElementById("m"+id+i);
-  m.style.display=m.style.display==="none"?"block":"none";
-}
-function deleteComment(id,i){
-  const r=db.collection("articles").doc(id);
-  r.get().then(d=>{let a=d.data().comments;a.splice(i,1);r.update({comments:a});});
-}
-function editComment(id,i){
-  const e=document.getElementById("t"+id+i);
-  e.innerHTML=`<textarea id="e${id}${i}">${e.innerText}</textarea>
-  <button onclick="saveComment('${id}',${i})">Сохранить</button>`;
-}
-function saveComment(id,i){
-  const r=db.collection("articles").doc(id);
-  r.get().then(d=>{let a=d.data().comments;a[i]=document.getElementById("e"+id+i).value;r.update({comments:a});});
-}
+  function like(id,l){ db.collection("articles").doc(id).update({likes:l+1}); }
+
+  function comment(id){
+    const t=document.getElementById("c"+id).value;
+    if(t) db.collection("articles").doc(id)
+      .update({comments:firebase.firestore.FieldValue.arrayUnion(t)});
+  }
+
+  function toggleMenu(id,i){
+    const m=document.getElementById("m"+id+i);
+    m.style.display=m.style.display==="none"?"block":"none";
+  }
+
+  function deleteComment(id,i){
+    const r=db.collection("articles").doc(id);
+    r.get().then(d=>{
+      let a=d.data().comments;
+      a.splice(i,1);
+      r.update({comments:a});
+    });
+  }
+
+  function editComment(id,i){
+    const e=document.getElementById("t"+id+i);
+    const oldText = e.innerText;
+    e.innerHTML = `<textarea id="e${id}${i}" style="width:100%">${oldText}</textarea>
+                   <button onclick="saveComment('${id}',${i})">Сохранить</button>`;
+  }
+
+  function saveComment(id,i){
+    const r=db.collection("articles").doc(id);
+    r.get().then(d=>{
+      let a=d.data().comments;
+      const newText = document.getElementById("e"+id+i).value;
+      a[i] = newText;
+      r.update({comments:a});
+    });
+  }
 </script>
 
 </body>
